@@ -1,0 +1,26 @@
+name: 'RAPS - Rust APS CLI'
+description: 'Command-line interface for Autodesk Platform Services (APS)'
+author: 'Dmytro Yemelianov'
+branding:
+  icon: 'terminal'
+  color: 'blue'
+
+inputs:
+  command:
+    description: 'The RAPS command to run (e.g., "auth test", "bucket list")'
+    required: true
+  client_id:
+    description: 'APS Client ID'
+    required: false
+  client_secret:
+    description: 'APS Client Secret'
+    required: false
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.command }}
+  env:
+    APS_CLIENT_ID: ${{ inputs.client_id }}
+    APS_CLIENT_SECRET: ${{ inputs.client_secret }}
