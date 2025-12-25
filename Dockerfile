@@ -1,29 +1,19 @@
-# Build stage
-FROM rust:1.70-slim AS builder
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /usr/src/raps
-COPY . .
-
-# Build the application
-RUN cargo build --release
-
-# Final stage
 FROM debian:bookworm-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
-    libssl3 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the binary from the builder stage
-COPY --from=builder /usr/src/raps/target/release/raps /usr/local/bin/raps
+# Set version as an argument
+ARG VERSION=2.0.0
+
+# Download the pre-built binary from GitHub Releases
+RUN curl -L -o raps.tar.gz "https://github.com/dmytro-yemelianov/raps/releases/download/v${VERSION}/raps-linux-x64.tar.gz" && \
+    tar -xzf raps.tar.gz -C /usr/local/bin/ && \
+    chmod +x /usr/local/bin/raps && \
+    rm raps.tar.gz
 
 # Set the entrypoint
 ENTRYPOINT ["raps"]
