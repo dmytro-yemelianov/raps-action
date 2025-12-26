@@ -1,26 +1,100 @@
-name: '🌼 RAPS — rapeseed'
-description: 'Rust Autodesk Platform Services CLI for CI/CD automation'
+name: 'RAPS - Autodesk Platform Services CLI'
+description: 'Run RAPS commands for Autodesk Platform Services automation in your workflows'
 author: 'Dmytro Yemelianov'
+
 branding:
   icon: 'terminal'
   color: 'yellow'
 
 inputs:
+  version:
+    description: 'RAPS version to install (default: latest)'
+    required: false
+    default: 'latest'
   command:
-    description: 'The RAPS command to run (e.g., "auth test", "bucket list")'
+    description: 'RAPS command to run (e.g., "auth token", "oss buckets list")'
     required: true
-  client_id:
+  client-id:
     description: 'APS Client ID'
     required: false
-  client_secret:
+  client-secret:
     description: 'APS Client Secret'
     required: false
+  access-token:
+    description: 'Pre-obtained APS access token (alternative to client-id/secret)'
+    required: false
+  region:
+    description: 'APS region (US or EMEA)'
+    required: false
+    default: 'US'
+
+outputs:
+  result:
+    description: 'Command output'
+    value: ${{ steps.run.outputs.result }}
+  exit-code:
+    description: 'Command exit code'
+    value: ${{ steps.run.outputs.exit-code }}
 
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
-  args:
-    - ${{ inputs.command }}
-  env:
-    APS_CLIENT_ID: ${{ inputs.client_id }}
-    APS_CLIENT_SECRET: ${{ inputs.client_secret }}
+  using: 'composite'
+  steps:
+    - name: Install RAPS
+      shell: bash
+      run: |
+        VERSION="${{ inputs.version }}"
+        
+        if [ "$VERSION" = "latest" ]; then
+          VERSION=$(curl -s "https://api.github.com/repos/dmytro-yemelianov/raps/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
+        fi
+        
+        echo "Installing RAPS v${VERSION}..."
+        
+        # Detect OS and architecture
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+        
+        case "$OS" in
+          linux) OS_NAME="linux" ;;
+          darwin) OS_NAME="macos" ;;
+          *) echo "Unsupported OS: $OS"; exit 1 ;;
+        esac
+        
+        case "$ARCH" in
+          x86_64) ARCH_NAME="x64" ;;
+          aarch64|arm64) ARCH_NAME="arm64" ;;
+          *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+        esac
+        
+        DOWNLOAD_URL="https://github.com/dmytro-yemelianov/raps/releases/download/v${VERSION}/raps-${OS_NAME}-${ARCH_NAME}.tar.gz"
+        
+        curl -fsSL "$DOWNLOAD_URL" -o raps.tar.gz
+        tar -xzf raps.tar.gz
+        chmod +x raps
+        sudo mv raps /usr/local/bin/
+        rm raps.tar.gz
+        
+        echo "RAPS v${VERSION} installed successfully"
+        raps --version
+
+    - name: Run RAPS command
+      id: run
+      shell: bash
+      env:
+        APS_CLIENT_ID: ${{ inputs.client-id }}
+        APS_CLIENT_SECRET: ${{ inputs.client-secret }}
+        APS_ACCESS_TOKEN: ${{ inputs.access-token }}
+        APS_REGION: ${{ inputs.region }}
+      run: |
+        set +e
+        OUTPUT=$(raps ${{ inputs.command }} 2>&1)
+        EXIT_CODE=$?
+        set -e
+        
+        echo "result<<EOF" >> $GITHUB_OUTPUT
+        echo "$OUTPUT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        echo "exit-code=$EXIT_CODE" >> $GITHUB_OUTPUT
+        
+        echo "$OUTPUT"
+        exit $EXIT_CODE
