@@ -1,9 +1,9 @@
-name: 'RAPS - Rust APS CLI'
-description: 'Command-line interface for Autodesk Platform Services (APS)'
+name: '🌼 RAPS — rapeseed'
+description: 'Rust Autodesk Platform Services CLI for CI/CD automation'
 author: 'Dmytro Yemelianov'
 branding:
   icon: 'terminal'
-  color: 'blue'
+  color: 'yellow'
 
 inputs:
   command:
